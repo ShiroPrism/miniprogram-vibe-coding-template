@@ -8,16 +8,15 @@ permissions:
 
 jobs:
   auto-merge:
-    name: 彻底全自动批准并合并 Dependabot PR
+    name: 自动 Squash 合并 Dependabot PR
     runs-on: ubuntu-latest
     # 仅处理 dependabot[bot] 发起的 PR
-    if: ${{ github.actor == 'dependabot[bot]' }}
+    if: ${{ github.event.pull_request.user.login == 'dependabot[bot]' }}
 
     steps:
-      - name: 自动批准并设置 Squash 自动合并
-        run: |
-          gh pr review --approve "$PR_URL" || echo "已审批或无需审批"
-          gh pr merge --auto --squash "$PR_URL"
+      - name: Squash 合并 Dependabot PR
+        run: gh pr merge --squash --match-head-commit "$HEAD_SHA" "$PR_URL"
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

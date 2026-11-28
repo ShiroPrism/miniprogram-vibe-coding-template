@@ -28,14 +28,14 @@ jobs:
               exit 0
             fi
 
-            state="$(gh pr view "$PR_URL" --json state --jq '.state')"
+            state="$(gh pr view "$PR_URL" --json state --jq '.state')" || state=""
             if [ "$state" = "MERGED" ] || [ "$state" = "CLOSED" ]; then
               echo "PR 状态为 ${state}，无需继续合并。"
               exit 0
             fi
 
-            current_head="$(gh pr view "$PR_URL" --json headRefOid --jq '.headRefOid')"
-            if [ "$current_head" != "$HEAD_SHA" ]; then
+            current_head="$(gh pr view "$PR_URL" --json headRefOid --jq '.headRefOid')" || current_head=""
+            if [ -n "$current_head" ] && [ "$current_head" != "$HEAD_SHA" ]; then
               echo "PR head 已更新，等待新触发的 workflow 处理。"
               exit 0
             fi

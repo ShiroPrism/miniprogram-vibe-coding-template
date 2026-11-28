@@ -15,8 +15,36 @@ jobs:
 
     steps:
       - name: Squash 合并 Dependabot PR
-        run: gh pr merge --squash --match-head-commit "$HEAD_SHA" "$PR_URL"
+        shell: bash
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -uo pipefail
+
+          for attempt in 1 2 3 4 5 6; do
+            if gh pr merge --squash --match-head-commit "$HEAD_SHA" "$PR_URL"; then
+              exit 0
+            fi
+
+            state="$(gh pr view "$PR_URL" --json state --jq '.state')"
+            if [ "$state" = "MERGED" ] || [ "$state" = "CLOSED" ]; then
+              echo "PR 状态为 ${state}，无需继续合并。"
+              exit 0
+            fi
+
+            current_head="$(gh pr view "$PR_URL" --json headRefOid --jq '.headRefOid')"
+            if [ "$current_head" != "$HEAD_SHA" ]; then
+              echo "PR head 已更新，等待新触发的 workflow 处理。"
+              exit 0
+            fi
+
+            if [ "$attempt" -lt 6 ]; then
+              echo "第 ${attempt} 次合并失败，5 秒后重试..." >&2
+              sleep 5
+            fi
+          done
+
+          echo "合并失败，已达到最大重试次数。" >&2
+          exit 1
